@@ -107,16 +107,24 @@ export function RowDetailSheet({
   };
 
   const copyAllAsJson = () => {
-    // If masking is active, copy masked version
+    // Same shape as ResultsGrid.copyRow: only masked fields become display text;
+    // every other value keeps the type the query returned (#1941).
     if (maskingActive && sensitiveColumns && sensitiveColumns.size > 0) {
-      const maskedRow: Record<string, unknown> = {};
+      const maskedRow: Record<string, unknown> = { ...row };
       for (const field of fields) {
-        maskedRow[field] = copyTextOf(field, row[field]);
+        const pattern = sensitiveColumns.get(field);
+        if (
+          pattern &&
+          row[field] !== null &&
+          row[field] !== undefined &&
+          !revealedFields.has(field)
+        ) {
+          maskedRow[field] = maskValueByPattern(row[field], pattern);
+        }
       }
-      copyAndReport("__all__", JSON.stringify(maskedRow, null, 2));
+      copyAndReport("__all__", jsonText(binaryCellsAsHex(maskedRow), 2));
     } else {
-      // The masked branch above copies each field's display text, which is already the
-      // hex for a binary field; this one has to say so itself (#1381).
+      // A binary cell as the hex the sheet shows, not the Buffer form it arrived in (#1381).
       copyAndReport("__all__", jsonText(binaryCellsAsHex(row), 2));
     }
   };
